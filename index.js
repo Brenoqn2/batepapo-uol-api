@@ -125,7 +125,7 @@ app.get("/messages", async (req, res) => {
     const limit = req.query.limit;
     let messages = await messagesCollection.find({}).toArray();
     messages = messages.filter((message) => {
-      if (message.type === "message") {
+      if (message.type === "message" || message.type === "status") {
         return message;
       } else if (
         message.to === req.headers.user ||
@@ -169,6 +169,32 @@ app.post("/status", async (req, res) => {
     console.log(e);
   }
 });
+
+setInterval(async () => {
+  try {
+    const db = mongoClient.db("bate-papo-uol");
+    const participantsCollection = db.collection("participants");
+    const messagesCollection = db.collection("messages");
+    const participants = await participantsCollection.find({}).toArray();
+    const now = Date.now();
+    for (let i = 0; i < participants.length; i++) {
+      if (now - participants[i].lastStatus > 10000) {
+        await participantsCollection.deleteOne({ name: participants[i].name });
+        await messagesCollection.insertOne({
+          from: participants[i].name,
+          to: "Todos",
+          text: "sai da sala...",
+          type: "status",
+          time: `${String(dayjs().hour()).padStart(2, "0")}:${String(
+            dayjs().minute()
+          ).padStart(2, "0")}:${String(dayjs().second()).padStart(2, "0")}}`,
+        });
+      }
+    }
+  } catch (e) {
+    console.log(e);
+  }
+}, 15000);
 
 app.listen(5000, () => {
   console.log(`Server is running on port ${PORT}`);
