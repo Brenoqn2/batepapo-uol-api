@@ -75,6 +75,60 @@ app.get("/participants", async (req, res) => {
   }
 });
 
+app.post("/messages", async (req, res) => {
+  const to = req.body.to;
+  const text = req.body.text;
+  const type = req.body.type;
+  const from = req.headers.user;
+
+  try {
+    await mongoClient.connect();
+    const db = mongoClient.db("bate-papo-uol");
+    const participantsCollection = db.collection("participants");
+    const participants = await participantsCollection.find({}).toArray();
+    let participantsNames = [];
+    for (let i = 0; i < participants.length; i++) {
+      participantsNames.push(participants[i].name);
+    }
+    console.log(participantsNames);
+    const messageSchema = joi.object({
+      to: joi.string().alphanum().required(),
+      text: joi.string().required(),
+      type: joi.string().valid("message", "private_message").required(),
+      from: joi
+        .string()
+        .valid(...participantsNames)
+        .required(),
+    });
+    const validation = messageSchema.validate(
+      { to: to, text: text, type: type, from: from },
+      { abortEarly: true }
+    );
+    if (validation.error) {
+      console.log(validation.error.details);
+      res.sendStatus(422);
+      mongoClient.close();
+      return;
+    }
+    const messageCollection = db.collection("messages");
+    await messageCollection.insertOne({
+      to: to,
+      text: text,
+      type: type,
+      from: from,
+      time: `${String(dayjs().hour()).padStart(2, "0")}:${String(
+        dayjs().minute()
+      ).padStart(2, "0")}:${String(dayjs().second()).padStart(2, "0")}}`,
+    });
+    res.sendStatus(201);
+    mongoClient.close();
+  } catch (e) {
+    console.log(e);
+    res.sendStatus(500);
+    mongoClient.close();
+  }
+});
+
 app.listen(5000, () => {
   console.log(`Server is running on port ${PORT}`);
 });
