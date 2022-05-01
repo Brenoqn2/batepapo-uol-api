@@ -60,6 +60,21 @@ app.post("/participants", async (req, res) => {
   }
 });
 
+app.get("/participants", async (req, res) => {
+  try {
+    await mongoClient.connect();
+    const db = mongoClient.db("bate-papo-uol");
+    const participantsCollection = db.collection("participants");
+    const participants = await participantsCollection.find({}).toArray();
+    res.send(participants);
+    mongoClient.close();
+  } catch (e) {
+    console.log(e);
+    res.sendStatus(500);
+    mongoClient.close();
+  }
+});
+
 app.listen(5000, () => {
   console.log(`Server is running on port ${PORT}`);
 });
