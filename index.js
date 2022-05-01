@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import cors from "cors";
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
+mongoClient.connect();
 
 const app = express();
 app.use(express.json());
@@ -26,14 +27,12 @@ app.post("/participants", async (req, res) => {
     return;
   }
   try {
-    await mongoClient.connect();
     const db = mongoClient.db("bate-papo-uol");
     const participantsCollection = db.collection("participants");
     const alreadyUsedUsername = await participantsCollection.findOne({
       name: name,
     });
     if (alreadyUsedUsername) {
-      mongoClient.close();
       res.sendStatus(409);
       return;
     }
@@ -52,26 +51,21 @@ app.post("/participants", async (req, res) => {
       ).padStart(2, "0")}:${String(dayjs().second()).padStart(2, "0")}}`,
     });
     res.sendStatus(201);
-    mongoClient.close();
   } catch (e) {
     console.log(e);
     res.sendStatus(500);
-    mongoClient.close();
   }
 });
 
 app.get("/participants", async (req, res) => {
   try {
-    await mongoClient.connect();
     const db = mongoClient.db("bate-papo-uol");
     const participantsCollection = db.collection("participants");
     const participants = await participantsCollection.find({}).toArray();
     res.send(participants);
-    mongoClient.close();
   } catch (e) {
     console.log(e);
     res.sendStatus(500);
-    mongoClient.close();
   }
 });
 
@@ -82,7 +76,6 @@ app.post("/messages", async (req, res) => {
   const from = req.headers.user;
 
   try {
-    await mongoClient.connect();
     const db = mongoClient.db("bate-papo-uol");
     const participantsCollection = db.collection("participants");
     const participants = await participantsCollection.find({}).toArray();
@@ -106,7 +99,6 @@ app.post("/messages", async (req, res) => {
     if (validation.error) {
       console.log(validation.error.details);
       res.sendStatus(422);
-      mongoClient.close();
       return;
     }
     const messageCollection = db.collection("messages");
@@ -120,22 +112,18 @@ app.post("/messages", async (req, res) => {
       ).padStart(2, "0")}:${String(dayjs().second()).padStart(2, "0")}}`,
     });
     res.sendStatus(201);
-    mongoClient.close();
   } catch (e) {
     console.log(e);
     res.sendStatus(500);
-    mongoClient.close();
   }
 });
 
 app.get("/messages", async (req, res) => {
   try {
-    await mongoClient.connect();
     const db = mongoClient.db("bate-papo-uol");
     const messagesCollection = db.collection("messages");
     const limit = req.query.limit;
     let messages = await messagesCollection.find({}).toArray();
-    mongoClient.close();
     messages = messages.filter((message) => {
       if (message.type === "message") {
         return message;
@@ -156,9 +144,29 @@ app.get("/messages", async (req, res) => {
     }
     res.send(limitedMessages);
   } catch (e) {
-    mongoClient.close();
     console.log(e);
     res.sendStatus(500);
+  }
+});
+
+app.post("/status", async (req, res) => {
+  const user = req.headers.user;
+  try {
+    const db = mongoClient.db("bate-papo-uol");
+    const participantsCollection = db.collection("participants");
+    const loggedUser = await participantsCollection.findOne({ name: user });
+    if (!loggedUser) {
+      res.sendStatus(404);
+      return;
+    }
+    await participantsCollection.updateOne(
+      { name: user },
+      { $set: { lastStatus: Date.now() } }
+    );
+    res.sendStatus(200);
+  } catch (e) {
+    res.sendStatus(500);
+    console.log(e);
   }
 });
 
