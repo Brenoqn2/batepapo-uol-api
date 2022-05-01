@@ -90,7 +90,6 @@ app.post("/messages", async (req, res) => {
     for (let i = 0; i < participants.length; i++) {
       participantsNames.push(participants[i].name);
     }
-    console.log(participantsNames);
     const messageSchema = joi.object({
       to: joi.string().alphanum().required(),
       text: joi.string().required(),
@@ -126,6 +125,40 @@ app.post("/messages", async (req, res) => {
     console.log(e);
     res.sendStatus(500);
     mongoClient.close();
+  }
+});
+
+app.get("/messages", async (req, res) => {
+  try {
+    await mongoClient.connect();
+    const db = mongoClient.db("bate-papo-uol");
+    const messagesCollection = db.collection("messages");
+    const limit = req.query.limit;
+    let messages = await messagesCollection.find({}).toArray();
+    mongoClient.close();
+    messages = messages.filter((message) => {
+      if (message.type === "message") {
+        return message;
+      } else if (
+        message.to === req.headers.user ||
+        message.from === req.headers.user
+      ) {
+        return message;
+      }
+    });
+    let limitedMessages = [];
+    if (limit && limit < messages.length) {
+      for (let i = limit; i > 0; i--) {
+        limitedMessages.push(messages[messages.length - i]);
+      }
+    } else {
+      limitedMessages = messages;
+    }
+    res.send(limitedMessages);
+  } catch (e) {
+    mongoClient.close();
+    console.log(e);
+    res.sendStatus(500);
   }
 });
 
