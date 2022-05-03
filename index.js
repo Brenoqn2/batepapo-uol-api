@@ -1,5 +1,5 @@
 import express from "express";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 dotenv.config();
 import joi from "joi";
@@ -168,6 +168,29 @@ app.post("/status", async (req, res) => {
   } catch (e) {
     res.sendStatus(500);
     console.log(e);
+  }
+});
+
+app.delete("/messages/:id", async (req, res) => {
+  try {
+    const user = req.headers.user;
+    const id = req.params.id;
+    const db = mongoClient.db("bate-papo-uol");
+    const messagesCollection = db.collection("messages");
+    const message = await messagesCollection.findOne({ _id: new ObjectId(id) });
+    if (!message) {
+      res.sendStatus(404);
+      return;
+    }
+    if (message.from !== user) {
+      res.sendStatus(401);
+      return;
+    }
+    await messagesCollection.deleteOne({ _id: new ObjectId(id) });
+    res.sendStatus(200);
+  } catch (e) {
+    console.log(e);
+    res.sendStatus(500);
   }
 });
 
