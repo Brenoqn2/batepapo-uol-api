@@ -5,6 +5,7 @@ dotenv.config();
 import joi from "joi";
 import dayjs from "dayjs";
 import cors from "cors";
+import { stripHtml } from "string-strip-html";
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 mongoClient.connect();
@@ -19,7 +20,7 @@ const nameSchema = joi.object({
 });
 
 app.post("/participants", async (req, res) => {
-  const name = req.body.name;
+  const name = stripHtml(req.body.name).result.trim();
   const validation = nameSchema.validate({ name: name }, { abortEarly: true });
   if (validation.error) {
     console.log(validation.error.details);
@@ -42,7 +43,7 @@ app.post("/participants", async (req, res) => {
     });
     const messagesCollection = db.collection("messages");
     await messagesCollection.insertOne({
-      from: name,
+      from: stripHtml(name).result.trim(),
       to: "Todos",
       text: "entra na sala...",
       type: "status",
@@ -50,7 +51,7 @@ app.post("/participants", async (req, res) => {
         dayjs().minute()
       ).padStart(2, "0")}:${String(dayjs().second()).padStart(2, "0")}}`,
     });
-    res.sendStatus(201);
+    res.status(201).send({ name: name });
   } catch (e) {
     console.log(e);
     res.sendStatus(500);
@@ -103,10 +104,10 @@ app.post("/messages", async (req, res) => {
     }
     const messageCollection = db.collection("messages");
     await messageCollection.insertOne({
-      to: to,
-      text: text,
-      type: type,
-      from: from,
+      to: stripHtml(to).result.trim(),
+      text: stripHtml(text).result.trim(),
+      type: stripHtml(type).result.trim(),
+      from: stripHtml(from).result.trim(),
       time: `${String(dayjs().hour()).padStart(2, "0")}:${String(
         dayjs().minute()
       ).padStart(2, "0")}:${String(dayjs().second()).padStart(2, "0")}}`,
